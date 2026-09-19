@@ -1,0 +1,28 @@
+name: Deploy Priority to WebKitty
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare SSH
+        shell: bash
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s
+' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ssh.gb.stackcp.com >> ~/.ssh/known_hosts
+
+      - name: Deploy website
+        shell: bash
+        run: |
+          ssh jirijanousek.cz@ssh.gb.stackcp.com 'mkdir -p ~/public_html/priority'
+          scp index.html style.css app.js jirijanousek.cz@ssh.gb.stackcp.com:~/public_html/priority/
