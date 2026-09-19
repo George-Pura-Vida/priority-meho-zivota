@@ -35,4 +35,4 @@ jobs:
       - name: Deploy website
         shell: bash
         run: |
-          scp index.html style.css app.js manifest.webmanifest favicon.svg icon-192.png icon-512.png jirijanousek.cz@ssh.gb.stackcp.com:/home/sites/1a/1/1f8017897e/public_html/priority/
+          scp .htaccess index.html style.css app.js manifest.webmanifest favicon.svg icon-192.png icon-512.png jirijanousek.cz@ssh.gb.stackcp.com:/home/sites/1a/1/1f8017897e/public_html/priority/
