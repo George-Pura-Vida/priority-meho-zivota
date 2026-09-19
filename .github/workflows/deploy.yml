@@ -19,12 +19,13 @@ jobs:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
           install -m 700 -d ~/.ssh
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          printf '%s' "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_ed25519
+          printf '\n' >> ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
+          ssh-keygen -y -f ~/.ssh/id_ed25519 > /dev/null
           ssh-keyscan -H ssh.gb.stackcp.com >> ~/.ssh/known_hosts
 
       - name: Deploy website
         shell: bash
         run: |
-          ssh jirijanousek.cz@ssh.gb.stackcp.com "mkdir -p ~/public_html/priority"
-          scp index.html style.css app.js jirijanousek.cz@ssh.gb.stackcp.com:~/public_html/priority/
+          scp index.html style.css app.js jirijanousek.cz@ssh.gb.stackcp.com:/home/sites/1a/1/1f8017897e/public_html/priority/
