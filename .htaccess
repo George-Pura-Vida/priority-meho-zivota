@@ -1,0 +1,6 @@
+AuthType Basic
+AuthName "Priority meho zivota"
+AuthUserFile /home/sites/1a/1/1f8017897e/.priority_htpasswd
+Require valid-user
+
+Options -Indexes
