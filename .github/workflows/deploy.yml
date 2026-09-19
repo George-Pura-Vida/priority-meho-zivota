@@ -24,7 +24,15 @@ jobs:
           ssh-keygen -y -f ~/.ssh/id_ed25519 > /dev/null
           ssh-keyscan -H ssh.gb.stackcp.com >> ~/.ssh/known_hosts
 
+      - name: Build app icons
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq librsvg2-bin
+          rsvg-convert -w 192 -h 192 favicon.svg -o icon-192.png
+          rsvg-convert -w 512 -h 512 favicon.svg -o icon-512.png
+
       - name: Deploy website
         shell: bash
         run: |
-          scp index.html style.css app.js manifest.webmanifest favicon.svg jirijanousek.cz@ssh.gb.stackcp.com:/home/sites/1a/1/1f8017897e/public_html/priority/
+          scp index.html style.css app.js manifest.webmanifest favicon.svg icon-192.png icon-512.png jirijanousek.cz@ssh.gb.stackcp.com:/home/sites/1a/1/1f8017897e/public_html/priority/
