@@ -16,11 +16,10 @@ jobs:
       - name: Prepare SSH
         shell: bash
         env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_PRIVATE_KEY_B64: ${{ secrets.SSH_PRIVATE_KEY_B64 }}
         run: |
           install -m 700 -d ~/.ssh
-          printf '%s' "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_ed25519
-          printf '\n' >> ~/.ssh/id_ed25519
+          printf '%s' "$SSH_PRIVATE_KEY_B64" | sed '/CERTIFICATE/d' | tr -d '\r\n ' | base64 -d > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keygen -y -f ~/.ssh/id_ed25519 > /dev/null
           ssh-keyscan -H ssh.gb.stackcp.com >> ~/.ssh/known_hosts
