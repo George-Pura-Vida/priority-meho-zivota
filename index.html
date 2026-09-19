@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0877e8">
+<title>Priority mého života</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+<aside class="side">
+  <div class="brand"><span class="leaf">🌱</span><div><b>PRIORITY<br>MÉHO ŽIVOTA</b><small>Méně chaosu. Více života.</small></div></div>
+  <nav id="desktopNav"></nav>
+  <blockquote id="sideQuote">„To nejdůležitější dej na první místo.“<small>Stephen R. Covey</small></blockquote>
+</aside>
+<main>
+<header><div><h1 id="pageTitle">Dnes</h1><p id="today"></p></div><button class="icon" onclick="openAdd()">＋</button></header>
+<section id="view"></section>
+</main>
+<nav class="bottom" id="mobileNav"></nav>
+</div>
+
+<div class="modal" id="modal"><div class="sheet">
+<button class="close" onclick="closeModal()">×</button>
+<h2>Nová aktivita</h2>
+<label>Co chceš udělat?<input id="taskName" placeholder="Např. objednat se k lékaři"></label>
+<label>Oblast života<select id="taskArea"><option>Zdraví</option><option>Finance</option><option>Vztahy</option><option>Rozvoj</option></select></label>
+<label>Důležitost <b id="impOut">8</b>/10<input id="importance" type="range" min="1" max="10" value="8" oninput="impOut.textContent=this.value"></label>
+<label>Naléhavost <b id="urgOut">3</b>/10<input id="urgency" type="range" min="1" max="10" value="3" oninput="urgOut.textContent=this.value"></label>
+<label>Navázat na cíl<select id="taskGoal"></select></label>
+<button class="primary full" onclick="saveTask()">Přidat aktivitu</button>
+<p class="hint">💡 Aplikace aktivitu automaticky zařadí do Q1–Q4.</p>
+</div></div>
+<script src="app.js"></script>
+</body></html>
