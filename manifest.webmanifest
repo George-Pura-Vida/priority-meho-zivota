@@ -1,11 +1,1 @@
-{
-  "name": "Priority mého života",
-  "short_name": "Priority",
-  "description": "Osobní aplikace pro cíle a priority podle Coveyho kvadrantů.",
-  "start_url": "/",
-  "scope": "/",
-  "display": "standalone",
-  "background_color": "#f4f8fc",
-  "theme_color": "#10264b",
-  "icons": [{"src":"/favicon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
-}
+{"name":"Priority mého života","short_name":"Priority","description":"Osobní aplikace pro cíle a priority.","start_url":"/","scope":"/","display":"standalone","background_color":"#f4f8fc","theme_color":"#10264b","icons":[{"src":"/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},{"src":"/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}]}
