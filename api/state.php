@@ -32,8 +32,9 @@ function get_state(PDO $pdo,int $uid): array {
         'done'=>(bool)$r['done'],'completedAt'=>iso($r['completed_at']),'updatedAt'=>iso($r['updated_at'])
     ],$q->fetchAll());
 
-    $q=$pdo->prepare('SELECT review_date,score,win,waste,tomorrow FROM priority_reviews WHERE user_id=? AND review_date>=DATE_SUB(CURRENT_DATE,INTERVAL 90 DAY) ORDER BY review_date');
-    $q->execute([$uid]);
+    $q=$pdo->prepare('SELECT review_date,score,win,waste,tomorrow FROM priority_reviews WHERE user_id=? AND review_date>=? ORDER BY review_date');
+    $reviewsFrom=(new DateTimeImmutable('today',new DateTimeZone('Europe/Prague')))->modify('-90 days')->format('Y-m-d');
+    $q->execute([$uid,$reviewsFrom]);
     $reviews=array_map(fn($r)=>[
         'date'=>$r['review_date'],'score'=>$r['score']===null?null:(int)$r['score'],
         'win'=>$r['win'],'waste'=>$r['waste'],'tomorrow'=>$r['tomorrow']
