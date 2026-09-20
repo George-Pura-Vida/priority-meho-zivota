@@ -10,7 +10,7 @@ window.PrioritySync=(()=>{
  const uuid=()=>crypto.randomUUID?crypto.randomUUID():"xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,c=>{const r=Math.random()*16|0,v=c==="x"?r:(r&3|8);return v.toString(16)});
  const localDate=()=>{const d=new Date(),o=d.getTimezoneOffset();return new Date(d.getTime()-o*60000).toISOString().slice(0,10)};
  function normalize(s){
-  const x=structuredClone?structuredClone(s):JSON.parse(JSON.stringify(s));
+  const x=typeof structuredClone==="function"?structuredClone(s):JSON.parse(JSON.stringify(s));
   x.goalHorizon=x.goalHorizon||"10 let"; x.goals=Array.isArray(x.goals)?x.goals:[]; x.tasks=Array.isArray(x.tasks)?x.tasks:[];
   x.goals.forEach(g=>{g.id=g.id||uuid()});
   x.tasks.forEach(t=>{t.id=t.id||uuid();t.taskDate=t.taskDate||localDate()});
