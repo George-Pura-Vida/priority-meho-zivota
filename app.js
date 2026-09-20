@@ -15,7 +15,8 @@ let state=JSON.parse(localStorage.getItem("priorityLife")||"null")||{
  review:null,
  goalHorizon:"10 let"
 };
-const save=()=>{localStorage.setItem("priorityLife",JSON.stringify(state));window.PrioritySync?.changed(()=>state)};\nwindow.priorityState=()=>state;
+const save=()=>{localStorage.setItem("priorityLife",JSON.stringify(state));window.PrioritySync?.changed(()=>state)};
+window.priorityState=()=>state;
 const areaIcon=a=>({Zdraví:"❤️",Finance:"🪙",Vztahy:"👥",Rozvoj:"🧠"}[a]||"🎯");
 const quad=t=>t.imp>=6?(t.urg>=6?1:2):(t.urg>=6?3:4);
 const navs=["Dnes","Cíle","Kvadranty","Život","Nastavení"];
