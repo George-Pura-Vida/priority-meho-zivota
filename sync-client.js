@@ -1,63 +1,62 @@
-/* Priority Life sync client v1
- * localStorage stays the offline/cache layer; server is the cross-device source.
- */
+/* Priority Life sync client v2 — fail closed: no silent overwrite. */
 window.PrioritySync=(()=>{
  const KEY="priorityLife", META="priorityLifeSync", API="/api";
- let timer=null,busy=false,ready=false,version=null;
-
+ let timer=null,busy=false,ready=false,version=null,dirty=false,conflict=false,getStateFn=null,setStateFn=null;
+ const hadLocalAtBoot=localStorage.getItem(KEY)!==null;
  const meta=()=>{try{return JSON.parse(localStorage.getItem(META)||"{}")}catch{return {}}};
  const setMeta=p=>localStorage.setItem(META,JSON.stringify({...meta(),...p}));
- const uuid=()=>crypto.randomUUID?crypto.randomUUID():"xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,c=>{const r=Math.random()*16|0,v=c==="x"?r:(r&3|8);return v.toString(16)});
+ const uuid=()=>typeof crypto!=="undefined"&&typeof crypto.randomUUID==="function"?crypto.randomUUID():"xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,c=>{const r=Math.random()*16|0,v=c==="x"?r:(r&3|8);return v.toString(16)});
  const localDate=()=>{const d=new Date(),o=d.getTimezoneOffset();return new Date(d.getTime()-o*60000).toISOString().slice(0,10)};
- function normalize(s){
-  const x=typeof structuredClone==="function"?structuredClone(s):JSON.parse(JSON.stringify(s));
-  x.goalHorizon=x.goalHorizon||"10 let"; x.goals=Array.isArray(x.goals)?x.goals:[]; x.tasks=Array.isArray(x.tasks)?x.tasks:[];
+ const clone=x=>typeof structuredClone==="function"?structuredClone(x):JSON.parse(JSON.stringify(x));
+ function normalize(s,{stampMissingDates=false}={}){
+  const x=clone(s||{}); x.goalHorizon=x.goalHorizon||"10 let";x.goals=Array.isArray(x.goals)?x.goals:[];x.tasks=Array.isArray(x.tasks)?x.tasks:[];
   x.goals.forEach(g=>{g.id=g.id||uuid()});
-  x.tasks.forEach(t=>{t.id=t.id||uuid();t.taskDate=t.taskDate||localDate()});
+  x.tasks.forEach(t=>{t.id=t.id||uuid();if(!("taskDate" in t))t.taskDate=stampMissingDates?localDate():null});
   return x;
  }
- function wire(s){
-  return {goalHorizon:s.goalHorizon,goals:s.goals.map(g=>({id:g.id,name:g.name,area:g.area,progress:Number(g.progress)||0,horizon:g.horizon})),
-   tasks:s.tasks.map(t=>({id:t.id,taskDate:t.taskDate||null,name:t.name,area:t.area,importance:Number(t.imp??t.importance)||0,urgency:Number(t.urg??t.urgency)||0,minutes:Number(t.mins??t.minutes)||0,done:!!t.done})),
-   reviews:s.review?[{date:(s.review.date||localDate()).slice(0,10),score:s.review.score??null,win:s.review.win??null,waste:s.review.waste??null,tomorrow:s.review.tomorrow??null}]:[]};
- }
- function fromServer(p,current){
-  const s={...current,goalHorizon:p.goalHorizon,goals:p.goals.map(g=>({id:g.id,name:g.name,area:g.area,progress:g.progress,horizon:g.horizon})),
-   tasks:p.tasks.map(t=>({id:t.id,taskDate:t.taskDate,name:t.name,area:t.area,imp:t.importance,urg:t.urgency,mins:t.minutes,done:t.done}))};
-  const last=p.reviews?.[p.reviews.length-1]; if(last)s.review={date:last.date,score:last.score,win:last.win,waste:last.waste,tomorrow:last.tomorrow};
-  return s;
- }
- async function req(path,opt={}){const r=await fetch(API+path,{credentials:"same-origin",cache:"no-store",...opt});let j={};try{j=await r.json()}catch{};if(!r.ok){const e=new Error(j?.error?.message||("HTTP "+r.status));e.status=r.status;e.data=j;throw e}return j}
- async function csrf(){return (await req("/csrf.php")).csrfToken}
+ function wire(s){return {goalHorizon:s.goalHorizon,goals:s.goals.map(g=>({id:g.id,name:g.name,area:g.area,progress:Number(g.progress)||0,horizon:g.horizon})),tasks:s.tasks.map(t=>({id:t.id,taskDate:t.taskDate||null,name:t.name,area:t.area,importance:Number(t.imp??t.importance)||0,urgency:Number(t.urg??t.urgency)||0,minutes:Number(t.mins??t.minutes)||0,done:!!t.done})),reviews:s.review?[{date:(s.review.date||localDate()).slice(0,10),score:s.review.score??null,win:s.review.win??null,waste:s.review.waste??null,tomorrow:s.review.tomorrow??null}]:[]}}
+ function fromServer(p,current){const s={...current,goalHorizon:p.goalHorizon,goals:p.goals.map(g=>({id:g.id,name:g.name,area:g.area,progress:g.progress,horizon:g.horizon})),tasks:p.tasks.map(t=>({id:t.id,taskDate:t.taskDate,name:t.name,area:t.area,imp:t.importance,urg:t.urgency,mins:t.minutes,done:t.done}))};const last=p.reviews?.[p.reviews.length-1];s.review=last?{date:last.date,score:last.score,win:last.win,waste:last.waste,tomorrow:last.tomorrow}:null;return s}
+ async function req(path,opt={}){const r=await fetch(API+path,{credentials:"same-origin",cache:"no-store",...opt});let j={};try{j=await r.json()}catch{}if(!r.ok){const e=new Error(j?.error?.message||("HTTP "+r.status));e.status=r.status;e.data=j;throw e}return j}
+ async function csrf(){return(await req("/csrf.php")).csrfToken}
  async function put(s,v){return req("/state.php",{method:"PUT",headers:{"Content-Type":"application/json","X-CSRF-Token":await csrf()},body:JSON.stringify({version:v,state:wire(s)})})}
+ const serverEmpty=r=>r.state.goals.length===0&&r.state.tasks.length===0&&r.state.reviews.length===0;
+ function applyServer(remote){const s=normalize(fromServer(remote.state,getStateFn()),{stampMissingDates:false});localStorage.setItem(KEY,JSON.stringify(s));setStateFn(s);version=remote.version;dirty=false;conflict=false;setMeta({imported:true,version,syncedAt:remote.updatedAt,status:"synced",lastError:null})}
+ function markConflict(remote,msg){conflict=true;dirty=true;setMeta({status:"conflict",serverVersion:remote?.version??null,lastError:msg||"Lokální i serverová data se liší. Automatické přepsání bylo zablokováno."});window.dispatchEvent(new CustomEvent("priority-sync-conflict",{detail:{serverVersion:remote?.version??null}}))}
  async function init(getState,setState){
-  let s=normalize(getState()); localStorage.setItem(KEY,JSON.stringify(s)); setState(s);
+  getStateFn=getState;setStateFn=setState;
+  let local=normalize(getState(),{stampMissingDates:hadLocalAtBoot});localStorage.setItem(KEY,JSON.stringify(local));setState(local);
   try{
-   const remote=await req("/state.php"); version=remote.version; const m=meta();
-   const hasLocal=localStorage.getItem(KEY)!==null;
-   const imported=!!m.imported;
-   const serverEmpty=(remote.state.goals.length===0&&remote.state.tasks.length===0&&remote.state.reviews.length===0);
-   if(hasLocal&&!imported&&serverEmpty){
-    const saved=await put(s,version);version=saved.version;setMeta({imported:true,version,syncedAt:saved.updatedAt,status:"synced"});
+   const remote=await req("/state.php");version=remote.version;const m=meta();
+   if(serverEmpty(remote)){
+    if(hadLocalAtBoot){const saved=await put(local,version);version=saved.version;setMeta({imported:true,version,syncedAt:saved.updatedAt,status:"synced",lastError:null})}
+    else {applyServer(remote)}
+   }else if(!hadLocalAtBoot){applyServer(remote)}
+   else if(m.version===remote.version && m.status!=="pending" && m.status!=="offline" && m.status!=="error" && m.status!=="conflict"){
+    applyServer(remote);
    }else{
-    s=normalize(fromServer(remote.state,s));localStorage.setItem(KEY,JSON.stringify(s));setState(s);
-    setMeta({imported:true,version,syncedAt:remote.updatedAt,status:"synced"});
+    markConflict(remote,"Na zařízení i serveru existují data a nelze bezpečně určit novější verzi. Nic nebylo přepsáno.");
    }
-   ready=true; window.dispatchEvent(new CustomEvent("priority-sync-ready"));
-  }catch(e){ready=true;setMeta({status:"offline",lastError:String(e.message)});}
+  }catch(e){dirty=hadLocalAtBoot;setMeta({status:navigator.onLine?"error":"offline",lastError:String(e.message)})}
+  ready=true;window.dispatchEvent(new CustomEvent("priority-sync-ready"));
  }
- function changed(getState){
-  if(!ready)return;clearTimeout(timer);setMeta({status:"pending"});
-  timer=setTimeout(()=>sync(getState),650);
- }
- async function sync(getState){
-  if(busy||version===null)return;busy=true;
-  try{const s=normalize(getState());const saved=await put(s,version);version=saved.version;setMeta({version,syncedAt:saved.updatedAt,status:"synced",lastError:null})}
+ function changed(getState){getStateFn=getState||getStateFn;if(!ready)return;dirty=true;clearTimeout(timer);setMeta({status:conflict?"conflict":"pending"});if(!conflict)timer=setTimeout(()=>flush(),650)}
+ async function flush(){
+  if(!ready||busy||conflict||!dirty||version===null||!getStateFn)return;
+  busy=true;dirty=false;const snapshot=normalize(getStateFn(),{stampMissingDates:false});
+  try{const saved=await put(snapshot,version);version=saved.version;setMeta({version,syncedAt:saved.updatedAt,status:dirty?"pending":"synced",lastError:null})}
   catch(e){
-   if(e.status===409){try{const remote=await req("/state.php");version=remote.version;setMeta({version,status:"conflict",lastError:"Novější data jsou na serveru; automatické přepsání bylo zablokováno."})}catch{}}
+   dirty=true;
+   if(e.status===409){let remote=null;try{remote=await req("/state.php")}catch{}markConflict(remote,"Server obsahuje novější verzi. Lokální změny zůstaly zachované a synchronizace je zablokovaná.")}
    else setMeta({status:navigator.onLine?"error":"offline",lastError:String(e.message)});
-  }finally{busy=false}
+  }finally{busy=false;if(dirty&&!conflict){clearTimeout(timer);timer=setTimeout(()=>flush(),650)}}
  }
- window.addEventListener("online",()=>{if(ready)changed(()=>window.priorityState?.())});
- return {init,changed,status:meta};
+ async function useServer(){
+  const remote=await req("/state.php");applyServer(remote);return {ok:true};
+ }
+ async function useLocal(){
+  if(!conflict)throw new Error("No conflict to resolve.");
+  const remote=await req("/state.php");version=remote.version;conflict=false;dirty=true;setMeta({version,status:"pending",lastError:null});await flush();return {ok:!conflict};
+ }
+ window.addEventListener("online",()=>{if(ready&&dirty&&!conflict)flush()});
+ return {init,changed,status:meta,flush,useServer,useLocal};
 })();
