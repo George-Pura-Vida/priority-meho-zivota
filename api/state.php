@@ -24,7 +24,7 @@ function get_state(PDO $pdo,int $uid): array {
         'horizon'=>$r['horizon'],'updatedAt'=>iso($r['updated_at'])
     ],$q->fetchAll());
 
-    $q=$pdo->prepare('SELECT id,task_date,name,area,importance,urgency,minutes,done,completed_at,updated_at FROM priority_tasks WHERE user_id=? ORDER BY COALESCE(task_date,"9999-12-31"),created_at,id');
+    $q=$pdo->prepare("SELECT id,task_date,name,area,importance,urgency,minutes,done,completed_at,updated_at FROM priority_tasks WHERE user_id=? ORDER BY COALESCE(task_date,'9999-12-31'),created_at,id");
     $q->execute([$uid]);
     $tasks=array_map(fn($r)=>[
         'id'=>$r['id'],'taskDate'=>$r['task_date'],'name'=>$r['name'],'area'=>$r['area'],
@@ -77,11 +77,11 @@ foreach ($state['tasks'] as $i=>$t) {
         !in_array($t['area'],$areas,true) || !is_int($t['importance']) || $t['importance']<0 || $t['importance']>10 ||
         !is_int($t['urgency']) || $t['urgency']<0 || $t['urgency']>10 || !is_int($t['minutes']) || $t['minutes']<0 || $t['minutes']>1440 ||
         !is_bool($t['done'])) api_error('VALIDATION_ERROR',"Invalid task at index $i.",422);
-    if (array_key_exists('taskDate',$t) && $t['taskDate']!==null && (!is_string($t['taskDate']) || !preg_match('/^\d{4}-\d{2}-\d{2}$/',$t['taskDate']))) api_error('VALIDATION_ERROR',"Invalid taskDate at index $i.",422);
+    if (array_key_exists('taskDate',$t) && $t['taskDate']!==null && (!is_string($t['taskDate']) || !valid_date($t['taskDate']))) api_error('VALIDATION_ERROR',"Invalid taskDate at index $i.",422);
 }
 foreach ($state['reviews'] as $i=>$r) {
     if (!is_array($r) || array_diff(array_keys($r),['date','score','win','waste','tomorrow']) || !isset($r['date']) ||
-        !is_string($r['date']) || !preg_match('/^\d{4}-\d{2}-\d{2}$/',$r['date']) ||
+        !is_string($r['date']) || !valid_date($r['date']) ||
         (isset($r['score']) && (!is_int($r['score']) || $r['score']<1 || $r['score']>10))) api_error('VALIDATION_ERROR',"Invalid review at index $i.",422);
 }
 
