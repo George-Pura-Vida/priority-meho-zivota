@@ -48,6 +48,16 @@ function showNow(){let t=state.tasks.filter(x=>!x.done).sort((a,b)=>((b.imp*3+b.
 function startFocus(name,mins){let end=Date.now()+mins*60000;$("#view").innerHTML='<div class="card focus"><div class="rocket">🎯</div><p>PRÁVĚ TEĎ DĚLÁM</p><h2>'+name+'</h2><div id="timer" style="font-size:48px;font-weight:800">'+mins+':00</div><p class="muted">Teď existuje jen jedna důležitá věc.</p><button class="primary" onclick="go(\'Dnes\')">✓ Hotovo</button></div>';let x=setInterval(()=>{let d=Math.max(0,end-Date.now()),m=Math.floor(d/60000),s=Math.floor(d%60000/1000),el=$("#timer");if(!el){clearInterval(x);return}el.textContent=m+':'+String(s).padStart(2,"0");if(!d)clearInterval(x)},1000)}
 function render(){let titles={Dnes:"Dnes",Cíle:"Moje vize a cíle",Kvadranty:"Coveyho kvadranty",Život:"Můj život",Nastavení:"Nastavení"};$("#pageTitle").textContent=titles[state.view];$("#today").textContent=new Intl.DateTimeFormat("cs-CZ",{weekday:"long",day:"numeric",month:"long",year:"numeric"}).format(new Date());$("#desktopNav").innerHTML=navHTML();$("#mobileNav").innerHTML=navHTML();$("#view").innerHTML=state.view==="Dnes"?dashboard():state.view==="Cíle"?goals():state.view==="Kvadranty"?quadrants():state.view==="Život"?life():settings()}
 render();
+if(window.PrioritySync){
+ PrioritySync.init(
+  ()=>state,
+  nextState=>{
+   state=nextState;
+   localStorage.setItem("priorityLife",JSON.stringify(state));
+   render();
+  }
+ );
+}
 const quotes=["„Nejdřív buduj. Potom nebudeš muset hasit.“","„Není cílem stihnout všechno. Cílem je nezanedbat to důležité.“","„Malý krok dnes může změnit směr zítřka.“","„Směr je důležitější než rychlost.“"];
 setInterval(()=>{let q=$("#quoteBox");if(q)q.textContent=quotes[Math.floor(Date.now()/8000)%quotes.length]},8000);
 
