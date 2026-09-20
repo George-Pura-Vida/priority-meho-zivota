@@ -15,7 +15,8 @@ let state=JSON.parse(localStorage.getItem("priorityLife")||"null")||{
  review:null,
  goalHorizon:"10 let"
 };
-const save=()=>localStorage.setItem("priorityLife",JSON.stringify(state));
+const save=()=>{localStorage.setItem("priorityLife",JSON.stringify(state));window.PrioritySync?.changed(()=>state)};
+window.priorityState=()=>state;
 const areaIcon=a=>({Zdraví:"❤️",Finance:"🪙",Vztahy:"👥",Rozvoj:"🧠"}[a]||"🎯");
 const quad=t=>t.imp>=6?(t.urg>=6?1:2):(t.urg>=6?3:4);
 const navs=["Dnes","Cíle","Kvadranty","Život","Nastavení"];
@@ -42,10 +43,29 @@ function stats(){return '<div class="grid two"><div class="card"><h2>Statistiky<
 function life(){return '<div class="grid two"><div class="card"><h2>🧭 Můj život</h2><p class="muted">Od vize k dnešním krokům.</p><div class="motivation"><blockquote>„Žít zdravý, svobodný a naplněný život. Být oporou pro svou rodinu a dělat smysluplnou práci.“</blockquote><small>Moje vize</small></div><h3 style="margin-top:18px">Životní oblasti</h3>'+areas()+'</div><div class="card"><h3>🌙 Večerní vyhodnocení</h3><div class="review"><p>Jaký byl dnešní den?</p><div class="rate">😞 <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span> 😄</div><label>Co se dnes povedlo?</label><textarea id="win" placeholder="Např. trénink, důležitý rozhovor…"></textarea><label>Co mi zbytečně bralo čas?</label><textarea id="waste" placeholder="Např. sociální sítě, neplánované hovory…"></textarea><label>Co je nejdůležitější zítra?</label><textarea id="tomorrow" placeholder="Jedna opravdu důležitá věc…"></textarea><button class="primary full" onclick="saveReview()">Uložit den</button></div></div></div>'}
 function settings(){let i=Number.isInteger(state.editGoalIndex)?state.editGoalIndex:0;let g=state.goals[i]||state.goals[0];if(!g)return '<div class="card"><h2>⚙️ Nastavení</h2><p>Zatím nemáš žádný cíl.</p></div>';return '<div class="card settingsCard"><h2>⚙️ Nastavení cíle</h2><p class="muted">Tady můžeš cíl kompletně upravit.</p><label>Název cíle<input id="setGoalName" value="'+g.name.replaceAll('"','&quot;')+'"></label><label>Oblast<select id="setGoalArea">'+["Zdraví","Finance","Vztahy","Rozvoj"].map(a=>'<option '+(a===g.area?'selected':'')+'>'+a+'</option>').join("")+'</select></label><label>Časový horizont<select id="setGoalHorizon">'+["10 let","5 let","1 rok","Měsíc"].map(h=>'<option '+(h===g.horizon?'selected':'')+'>'+h+'</option>').join("")+'</select></label><label>Splnění cíle <b id="setGoalProgressOut">'+g.progress+'%</b><input id="setGoalProgress" type="range" min="0" max="100" value="'+g.progress+'" oninput="setGoalProgressOut.textContent=this.value+\'%\'"></label><div class="settingsActions"><button class="primary" onclick="saveGoalSettings('+i+')">💾 Uložit změny</button><button class="dangerBtn" onclick="deleteGoal('+i+')">🗑 Smazat cíl</button></div></div>'}
 function saveGoalSettings(i){let g=state.goals[i];if(!g)return;g.name=$("#setGoalName").value.trim()||g.name;g.area=$("#setGoalArea").value;g.horizon=$("#setGoalHorizon").value;g.progress=+$("#setGoalProgress").value;state.goalHorizon=g.horizon;save();go("Cíle")}
-function saveReview(){state.review={win:$("#win").value,waste:$("#waste").value,tomorrow:$("#tomorrow").value,date:new Date().toISOString()};save();alert("Den uložen ✓")}
+function saveReview(){state.review={win:$("#win").value,waste:$("#waste").value,tomorrow:$("#tomorrow").value,date:new Intl.DateTimeFormat("en-CA",{timeZone:"Europe/Prague",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date())};save();alert("Den uložen ✓")}
 function showNow(){let t=state.tasks.filter(x=>!x.done).sort((a,b)=>((b.imp*3+b.urg)+(quad(b)==2?8:0))-((a.imp*3+a.urg)+(quad(a)==2?8:0)))[0];if(!t)return alert("Všechny priority jsou hotové 🎉");$("#pageTitle").textContent="Co je teď nejdůležitější?";$("#view").innerHTML='<div class="card focus"><div class="rocket">🚀</div><p class="badge">DOPORUČENÁ AKTIVITA</p><h2>'+areaIcon(t.area)+' '+t.name+'</h2><p><span class="badge">Q'+quad(t)+'</span> &nbsp; ⏱ '+t.mins+' minut</p><h3>Proč právě toto?</h3><p>✓ Vysoká důležitost pro tvé cíle<br>✓ '+(quad(t)==2?'Je důležité, ale zatím neurgentní<br>✓ Chráníš tím svůj Q2 a budoucnost':'Má vysokou aktuální prioritu')+'</p><button class="primary" onclick="startFocus(\''+t.name.replaceAll("'","\\'")+'\','+t.mins+')">▶ Začít</button><br><button style="border:0;background:none;color:#0877e8;margin-top:18px" onclick="go(\'Dnes\')">Zvolit jinou prioritu</button></div>'}
 function startFocus(name,mins){let end=Date.now()+mins*60000;$("#view").innerHTML='<div class="card focus"><div class="rocket">🎯</div><p>PRÁVĚ TEĎ DĚLÁM</p><h2>'+name+'</h2><div id="timer" style="font-size:48px;font-weight:800">'+mins+':00</div><p class="muted">Teď existuje jen jedna důležitá věc.</p><button class="primary" onclick="go(\'Dnes\')">✓ Hotovo</button></div>';let x=setInterval(()=>{let d=Math.max(0,end-Date.now()),m=Math.floor(d/60000),s=Math.floor(d%60000/1000),el=$("#timer");if(!el){clearInterval(x);return}el.textContent=m+':'+String(s).padStart(2,"0");if(!d)clearInterval(x)},1000)}
 function render(){let titles={Dnes:"Dnes",Cíle:"Moje vize a cíle",Kvadranty:"Coveyho kvadranty",Život:"Můj život",Nastavení:"Nastavení"};$("#pageTitle").textContent=titles[state.view];$("#today").textContent=new Intl.DateTimeFormat("cs-CZ",{weekday:"long",day:"numeric",month:"long",year:"numeric"}).format(new Date());$("#desktopNav").innerHTML=navHTML();$("#mobileNav").innerHTML=navHTML();$("#view").innerHTML=state.view==="Dnes"?dashboard():state.view==="Cíle"?goals():state.view==="Kvadranty"?quadrants():state.view==="Život"?life():settings()}
 render();
 const quotes=["„Nejdřív buduj. Potom nebudeš muset hasit.“","„Není cílem stihnout všechno. Cílem je nezanedbat to důležité.“","„Malý krok dnes může změnit směr zítřka.“","„Směr je důležitější než rychlost.“"];
 setInterval(()=>{let q=$("#quoteBox");if(q)q.textContent=quotes[Math.floor(Date.now()/8000)%quotes.length]},8000);
+
+window.addEventListener("priority-sync-conflict",()=>showSyncConflict());
+function showSyncConflict(){
+ let el=document.getElementById("syncConflict");
+ if(!el){el=document.createElement("div");el.id="syncConflict";el.style.cssText="position:fixed;inset:0;z-index:9999;background:rgba(15,35,70,.45);display:flex;align-items:center;justify-content:center;padding:20px";el.innerHTML='<div style="background:#fff;max-width:480px;width:100%;border-radius:20px;padding:24px;box-shadow:0 18px 50px rgba(15,35,70,.22)"><h2 style="margin-top:0">⚠️ Konflikt synchronizace</h2><p>Na tomto zařízení i na serveru jsou jiné změny. Nic nebylo automaticky přepsáno.</p><p class="muted">Vyber, která verze se má zachovat.</p><div style="display:grid;gap:10px;margin-top:20px"><button class="primary" id="syncUseServer">☁️ Použít serverová data</button><button id="syncUseLocal" style="min-height:48px;border-radius:14px;border:1px solid #d8e0ea;background:#fff;font-weight:700">📱 Ponechat data tohoto zařízení</button></div><p id="syncConflictMsg" class="muted" style="margin-bottom:0"></p></div>';document.body.appendChild(el);
+  el.querySelector("#syncUseServer").onclick=()=>resolveSyncConflict("server");
+  el.querySelector("#syncUseLocal").onclick=()=>resolveSyncConflict("local");
+ }
+ el.style.display="flex";
+}
+async function resolveSyncConflict(choice){
+ const msg=document.getElementById("syncConflictMsg"),buttons=document.querySelectorAll("#syncConflict button");
+ buttons.forEach(b=>b.disabled=true);if(msg)msg.textContent="Synchronizuji…";
+ try{
+  if(choice==="server")await PrioritySync.useServer();else await PrioritySync.useLocal();
+  const el=document.getElementById("syncConflict");if(el)el.style.display="none";
+  render();
+ }catch(e){if(msg)msg.textContent="Synchronizaci se nepodařilo dokončit. Data zůstala zachována.";buttons.forEach(b=>b.disabled=false)}
+}
