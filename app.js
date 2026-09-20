@@ -49,3 +49,22 @@ function render(){let titles={Dnes:"Dnes",Cíle:"Moje vize a cíle",Kvadranty:"C
 render();
 const quotes=["„Nejdřív buduj. Potom nebudeš muset hasit.“","„Není cílem stihnout všechno. Cílem je nezanedbat to důležité.“","„Malý krok dnes může změnit směr zítřka.“","„Směr je důležitější než rychlost.“"];
 setInterval(()=>{let q=$("#quoteBox");if(q)q.textContent=quotes[Math.floor(Date.now()/8000)%quotes.length]},8000);
+
+window.addEventListener("priority-sync-conflict",()=>showSyncConflict());
+function showSyncConflict(){
+ let el=document.getElementById("syncConflict");
+ if(!el){el=document.createElement("div");el.id="syncConflict";el.style.cssText="position:fixed;inset:0;z-index:9999;background:rgba(15,35,70,.45);display:flex;align-items:center;justify-content:center;padding:20px";el.innerHTML='<div style="background:#fff;max-width:480px;width:100%;border-radius:20px;padding:24px;box-shadow:0 18px 50px rgba(15,35,70,.22)"><h2 style="margin-top:0">⚠️ Konflikt synchronizace</h2><p>Na tomto zařízení i na serveru jsou jiné změny. Nic nebylo automaticky přepsáno.</p><p class="muted">Vyber, která verze se má zachovat.</p><div style="display:grid;gap:10px;margin-top:20px"><button class="primary" id="syncUseServer">☁️ Použít serverová data</button><button id="syncUseLocal" style="min-height:48px;border-radius:14px;border:1px solid #d8e0ea;background:#fff;font-weight:700">📱 Ponechat data tohoto zařízení</button></div><p id="syncConflictMsg" class="muted" style="margin-bottom:0"></p></div>';document.body.appendChild(el);
+  el.querySelector("#syncUseServer").onclick=()=>resolveSyncConflict("server");
+  el.querySelector("#syncUseLocal").onclick=()=>resolveSyncConflict("local");
+ }
+ el.style.display="flex";
+}
+async function resolveSyncConflict(choice){
+ const msg=document.getElementById("syncConflictMsg"),buttons=document.querySelectorAll("#syncConflict button");
+ buttons.forEach(b=>b.disabled=true);if(msg)msg.textContent="Synchronizuji…";
+ try{
+  if(choice==="server")await PrioritySync.useServer();else await PrioritySync.useLocal();
+  const el=document.getElementById("syncConflict");if(el)el.style.display="none";
+  render();
+ }catch(e){if(msg)msg.textContent="Synchronizaci se nepodařilo dokončit. Data zůstala zachována.";buttons.forEach(b=>b.disabled=false)}
+}
