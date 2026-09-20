@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+date_default_timezone_set('Europe/Prague');
 session_start();
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
@@ -67,6 +68,11 @@ function read_json_body(): array {
 function iso(?string $value): ?string {
     if (!$value) return null;
     return (new DateTimeImmutable($value, new DateTimeZone(date_default_timezone_get())))->format(DateTimeInterface::ATOM);
+}
+
+function valid_date(string $date): bool {
+    $d=DateTimeImmutable::createFromFormat('!Y-m-d',$date,new DateTimeZone('Europe/Prague'));
+    return $d!==false && $d->format('Y-m-d')===$date;
 }
 
 function valid_uuid(string $id): bool {
