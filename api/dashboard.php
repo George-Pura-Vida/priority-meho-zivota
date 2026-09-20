@@ -4,8 +4,9 @@ require __DIR__.'/bootstrap.php';
 require_auth();
 if (($_SERVER['REQUEST_METHOD']??'GET')!=='GET') { header('Allow: GET'); api_error('METHOD_NOT_ALLOWED','Only GET is allowed.',405); }
 $pdo=db(); $uid=PRIORITY_USER_ID;
-$q=$pdo->prepare('SELECT id,name,area,importance,urgency,minutes,done FROM priority_tasks WHERE user_id=? AND task_date=CURRENT_DATE');
-$q->execute([$uid]); $tasks=$q->fetchAll();
+$q=$pdo->prepare('SELECT id,name,area,importance,urgency,minutes,done FROM priority_tasks WHERE user_id=? AND task_date=?');
+$today=(new DateTimeImmutable('now',new DateTimeZone('Europe/Prague')))->format('Y-m-d');
+$q->execute([$uid,$today]); $tasks=$q->fetchAll();
 $total=count($tasks); $completed=0; $open=[]; $quads=[1=>0,2=>0,3=>0,4=>0];
 foreach($tasks as $t){ if((bool)$t['done']){$completed++;continue;} $imp=(int)$t['importance'];$urg=(int)$t['urgency'];$quad=$imp>=6?($urg>=6?1:2):($urg>=6?3:4);$quads[$quad]++;$t['_q']=$quad;$t['_score']=$imp*3+$urg+($quad===2?8:0);$open[]=$t; }
 usort($open,fn($a,$b)=>$b['_score']<=>$a['_score']);
