@@ -1,80 +1,18 @@
 <?php
 declare(strict_types=1);
-
 date_default_timezone_set('Europe/Prague');
-session_start();
-header('Content-Type: application/json; charset=utf-8');
-header('Cache-Control: no-store');
-
-const PRIORITY_USER_ID = 1;
-const PRIORITY_MAX_BODY = 1048576;
-
-function json_out(array $data, int $status = 200): never {
-    http_response_code($status);
-    echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    exit;
-}
-
-function api_error(string $code, string $message, int $status, array $extra = []): never {
-    json_out(array_merge(['ok'=>false,'error'=>['code'=>$code,'message'=>$message]], $extra), $status);
-}
-
-function require_auth(): void {
-    if (empty($_SESSION['priority_auth'])) api_error('UNAUTHORIZED','Authentication required.',401);
-}
-
-function db(): PDO {
-    static $pdo = null;
-    if ($pdo instanceof PDO) return $pdo;
-    $configFile = getenv('PRIORITY_DB_CONFIG') ?: '/home/sites/1a/1/1f8017897e/.priority_db.php';
-    if (!is_file($configFile)) api_error('SERVER_CONFIG_ERROR','Database configuration is unavailable.',500);
-    $c = require $configFile;
-    if (!is_array($c) || empty($c['dsn']) || !array_key_exists('user',$c) || !array_key_exists('password',$c)) {
-        api_error('SERVER_CONFIG_ERROR','Database configuration is invalid.',500);
-    }
-    try {
-        $pdo = new PDO($c['dsn'], (string)$c['user'], (string)$c['password'], [
-            PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES=>false
-        ]);
-    } catch (Throwable $e) {
-        api_error('DATABASE_UNAVAILABLE','Database is unavailable.',500);
-    }
-    return $pdo;
-}
-
-function csrf_token(): string {
-    if (empty($_SESSION['priority_csrf'])) $_SESSION['priority_csrf'] = bin2hex(random_bytes(32));
-    return (string)$_SESSION['priority_csrf'];
-}
-
-function require_csrf(): void {
-    $token = (string)($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
-    if ($token === '' || !hash_equals(csrf_token(), $token)) api_error('CSRF_INVALID','Invalid CSRF token.',403);
-}
-
-function read_json_body(): array {
-    $len=(int)($_SERVER['CONTENT_LENGTH'] ?? 0);
-    if ($len > PRIORITY_MAX_BODY) api_error('PAYLOAD_TOO_LARGE','Request body is too large.',413);
-    $raw=file_get_contents('php://input');
-    if ($raw===false || $raw==='') api_error('INVALID_JSON','JSON body is required.',400);
-    try { $data=json_decode($raw,true,512,JSON_THROW_ON_ERROR); }
-    catch (JsonException $e) { api_error('INVALID_JSON','Malformed JSON.',400); }
-    if (!is_array($data)) api_error('INVALID_JSON','JSON object is required.',400);
-    return $data;
-}
-
-function iso(?string $value): ?string {
-    if (!$value) return null;
-    return (new DateTimeImmutable($value, new DateTimeZone(date_default_timezone_get())))->format(DateTimeInterface::ATOM);
-}
-
-function valid_date(string $date): bool {
-    $d=DateTimeImmutable::createFromFormat('!Y-m-d',$date,new DateTimeZone('Europe/Prague'));
-    return $d!==false && $d->format('Y-m-d')===$date;
-}
-
-function valid_uuid(string $id): bool {
-    return (bool)preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i',$id);
-}
+ini_set('session.use_strict_mode','1');ini_set('session.use_only_cookies','1');session_set_cookie_params(['lifetime'=>0,'path'=>'/','secure'=>true,'httponly'=>true,'samesite'=>'Lax']);session_start();
+header('Content-Type: application/json; charset=utf-8');header('Cache-Control: no-store');
+const PRIORITY_MAX_BODY=1048576;
+function json_out(array $data,int $status=200): never{http_response_code($status);echo json_encode($data,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);exit;}
+function api_error(string $code,string $message,int $status,array $extra=[]): never{json_out(array_merge(['ok'=>false,'error'=>['code'=>$code,'message'=>$message]],$extra),$status);}
+function require_auth(): void{if(empty($_SESSION['priority_auth'])||empty($_SESSION['priority_user_id']))api_error('UNAUTHORIZED','Authentication required.',401);}
+function current_priority_user_id(): int{require_auth();$id=$_SESSION['priority_user_id']??null;if((!is_int($id)&&!ctype_digit((string)$id))||(int)$id<1)api_error('UNAUTHORIZED','Invalid authentication session.',401);return (int)$id;}
+function db(): PDO{static $pdo=null;if($pdo instanceof PDO)return $pdo;$configFile=getenv('PRIORITY_DB_CONFIG')?:'/home/sites/1a/1/1f8017897e/.priority_db.php';if(!is_file($configFile))api_error('SERVER_CONFIG_ERROR','Database configuration is unavailable.',500);$c=require $configFile;if(!is_array($c)||empty($c['dsn'])||!array_key_exists('user',$c)||!array_key_exists('password',$c))api_error('SERVER_CONFIG_ERROR','Database configuration is invalid.',500);try{$pdo=new PDO($c['dsn'],(string)$c['user'],(string)$c['password'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC,PDO::ATTR_EMULATE_PREPARES=>false]);}catch(Throwable $e){api_error('DATABASE_UNAVAILABLE','Database is unavailable.',500);}return $pdo;}
+function ensure_priority_user_schema(PDO $pdo): void{$pdo->exec('CREATE TABLE IF NOT EXISTS priority_users (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,external_user_id BIGINT UNSIGNED NOT NULL,email VARCHAR(190) NULL,status VARCHAR(20) NOT NULL DEFAULT "active",created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,last_login_at DATETIME NULL,UNIQUE KEY uq_priority_external_user(external_user_id),KEY idx_priority_email(email),KEY idx_priority_status(status)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');}
+function csrf_token(): string{if(empty($_SESSION['priority_csrf']))$_SESSION['priority_csrf']=bin2hex(random_bytes(32));return(string)$_SESSION['priority_csrf'];}
+function require_csrf(): void{$token=(string)($_SERVER['HTTP_X_CSRF_TOKEN']??'');if($token===''||!hash_equals(csrf_token(),$token))api_error('CSRF_INVALID','Invalid CSRF token.',403);}
+function read_json_body(): array{$len=(int)($_SERVER['CONTENT_LENGTH']??0);if($len>PRIORITY_MAX_BODY)api_error('PAYLOAD_TOO_LARGE','Request body is too large.',413);$raw=file_get_contents('php://input');if($raw===false||$raw==='')api_error('INVALID_JSON','JSON body is required.',400);try{$data=json_decode($raw,true,512,JSON_THROW_ON_ERROR);}catch(JsonException $e){api_error('INVALID_JSON','Malformed JSON.',400);}if(!is_array($data))api_error('INVALID_JSON','JSON object is required.',400);return$data;}
+function iso(?string $value):?string{if(!$value)return null;return(new DateTimeImmutable($value,new DateTimeZone(date_default_timezone_get())))->format(DateTimeInterface::ATOM);}
+function valid_date(string $date):bool{$d=DateTimeImmutable::createFromFormat('!Y-m-d',$date,new DateTimeZone('Europe/Prague'));return$d!==false&&$d->format('Y-m-d')===$date;}
+function valid_uuid(string $id):bool{return(bool)preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i',$id);}
